@@ -12,7 +12,9 @@ Feel free to use with MIT.
 
 # Usage
 ```
-var transliterated = transliterate(str, [ transliterateAsyncFn ],  [ bufferSizeChars ], [ rules ]);
+var transliterated = transliterate(str, [ rules ]);
+
+transliterateAsync(str, [ transliterateAsyncFn ],  [ bufferSizeChars ], [ rules ]));
 
 ```
 
@@ -30,9 +32,10 @@ rules =
 transliterateAsyncFn - string will be transliterated asynchronously with buffers of defined or default size 100 and when all async done this callback will be triggered with the transliterated string.
 
 ```
+var data = '';
 transliterateAsyncFn = function (originalChunk, replacedChunk, chunkStartIndex) {
 	if (originalChunk === 'Ня' &&  replacedChunk === 'Ńa') {
-		return '<b>Ńa</b>'; //custom token wrapping or other job
+		data += '<b>Ńa</b>'; //custom token wrapping or other job
 	}
 };
 ```

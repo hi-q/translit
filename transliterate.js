@@ -2,10 +2,7 @@
 	'use strict';
 
 	var 
-		  obp = Object.prototype
-		, toString = obp.toString
-
-		, defaultBufferSizeChars = 100
+		  defaultBufferSizeChars = 100
 
 		, ruleFrom = 0
 		, ruleTo = 1
@@ -14,33 +11,33 @@
 	;
 
 	transliterate.log = log;
-	global.transliterate = transliterate;
 
-	function transliterate(str, transliterateAsyncFn, bufferSizeChars, rules) {
+	exportGlobal('transliterate', transliterate);
+	exportGlobal('transliterateAsync', transliterateAsync);
+
+	function transliterate(str, rules) {
+		str = str || '';
+		rules = rules || getDefaultRules();
+		
+		str = replacePartSync(str, rules);
+
+		return str;	
+	}
+
+	function transliterateAsync(str, transliterateAsyncFn, bufferSizeChars, rules) {
 		var 
-			  log = transliterate.log
-
-			, i
-			, buffered
+			  i = 0
+			, buffered = str.substr(0, bufferSizeChars)
 		;
-
+		
 		str = str || '';
 		rules = rules || getDefaultRules();
 		bufferSizeChars = bufferSizeChars || defaultBufferSizeChars;
-		
-		if (!isFn(transliterateAsyncFn)) {
-			str = replacePartSync(str);
-			log("str=" + str);
-			return str;
-		}
-
-		i = 0;
-		buffered = str.substr(0, bufferSizeChars);
 
 		async(function generateBufferClosure(buffered, i) {
 			return function replaceAsync() {
 				var 
-					  replaced = replacePartSync(buffered)
+					  replaced = replacePartSync(buffered, rules)
 				;
 
 				transliterateAsyncFn(buffered, replaced, i);
@@ -52,49 +49,50 @@
 					async(generateBufferClosure(buffered, i));	
 				}
 			};	
-		} (buffered, i));
+		} (buffered, i));	
+	}
 
-		function replacePartSync(str) {
+	function replacePartSync(str, rules) {
+		var 
+			  log = getLog()
+			, replaced = str
+		;
+
+		for (var ruleNumber in rules) {
 			var 
-				replaced = str
+				  rule = rules[ruleNumber]
+				, from = rule[ruleFrom]
+				, to = rule[ruleTo]
 			;
 
-			for (var ruleNumber in rules) {
-				var 
-					  rule = rules[ruleNumber]
-					, from = rule[ruleFrom]
-					, to = rule[ruleTo]
-				;
+			replaced = replaced.replace(new RegExp(from, 'gi'), replaceMatched);
+		}
 
-				replaced = replaced.replace(new RegExp(from, 'gi'), replaceMatched);
+		return replaced;
+
+		function replaceMatched(matched) {
+			log("from=" + from + " to=" + to + " matched=" + matched);
+
+			var replaced = to.split('');
+
+			if (from.length !== to.length) {
+				return replaced;
 			}
 
-			return replaced;
+			for(var charNum in from.split('')) {
 
-			function replaceMatched(matched) {
-				log("from=" + from + " to=" + to + " matched=" + matched);
+				switch(isUpper(matched[charNum])) {
 
-				var replaced = to.split('');
+					case true:
+						replaced[charNum] = replaced[charNum].toUpperCase();
+						break;
 
-				if (from.length !== to.length) {
-					return replaced;
+					default:
+						replaced[charNum] = replaced[charNum].toLowerCase();
 				}
-
-				for(var charNum in from.split('')) {
-
-					switch(isUpper(matched[charNum])) {
-
-						case true:
-							replaced[charNum] = replaced[charNum].toUpperCase();
-							break;
-
-						default:
-							replaced[charNum] = replaced[charNum].toLowerCase();
-					}
-				}
-
-				return replaced.join('');
 			}
+
+			return replaced.join('');
 		}
 	}
 
@@ -196,10 +194,6 @@
 		}
 	}
 
-	function isFn(fn) {
-		return toString.apply(fn) === '[object Function]';
-	}
-
 	function arrDiff(b, a) {
 	    return b.filter(function(i) {return a.indexOf(i) < 0;});
 	}
@@ -210,9 +204,7 @@
 		return str === str.toUpperCase();
 	}
 
-	function log(str) {
-		
-	}
+	function log() {}
 
 	function async(fn) {
 		setTimeout(fn, 0);
@@ -224,21 +216,12 @@
 		}
 	}
 
-	// function ab2str(buf) {
-	// 	return String.fromCharCode.apply(null, new Uint16Array(buf));
-	// }
+	function getLog() {
+		return transliterate.log;
+	}
 
-	// function str2ab(str) {
-	// 	var 
-	// 		  ab = new ArrayBuffer(str.length *2 )
-	// 		, ar = new Uint16Array(ab)
-	// 	;
-
-	// 	for (var i = 0, strlen = str.length; i < strlen; i++) {
-	// 		ar[i] = str.charCodeAt(i);
-	// 	}
-
-	// 	return ab;
-	// }
+	function exportGlobal(exportName, whatToExport) {
+		global[exportName] = whatToExport;
+	}
 
 } (this));
