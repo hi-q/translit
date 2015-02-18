@@ -1,46 +1,134 @@
 ;(function (global) { 
 	'use strict';
 
-	var 
-		  defaultBufferSizeChars = 100
-
-		, ruleFrom = 0
-		, ruleTo = 1
-
-		, cachedRules = []
-	;
-
 	transliterate.log = log;
+
+	/* Export */
 
 	exportGlobal('transliterate', transliterate);
 	exportGlobal('transliterateAsync', transliterateAsync);
 
 	function transliterate(str, rules) {
-		str = str || '';
-		rules = rules || getDefaultRules();
-		
-		str = replacePartSync(str, rules);
+		var transliterator = new Transliterator(rules);
 
-		return str;	
+		return transliterator.transliterate(str);
 	}
 
 	function transliterateAsync(str, transliterateAsyncFn, bufferSizeChars, rules) {
+		var transliterator = new TransliteratorAsync(transliterateAsyncFn, bufferSizeChars, rules);
+
+		return transliterator.transliterate(str);
+	}
+
+	/* Export End*/
+
+	function ITransliterator(rules) { 
+		this._cachedRules = [];
+		this.rules = rules || this._getDefaultRules();
+		this.log = transliterate.log;
+	}
+
+	ITransliterator.prototype.transliterate = function () { 
+		throw new Error('Not implemented!');
+	};
+
+	ITransliterator.prototype._getDefaultRules = function () { 
+		var _cachedRules = this._cachedRules;
+
+		if (_cachedRules.length) { 
+			return _cachedRules;
+		}
+
 		var 
-			  i = 0
+			  russianRules = new RussianRules()
+			, rules = russianRules.rules
+		;
+
+		this._cachedRules = rules;
+
+		return rules;
+	};
+
+	ITransliterator.prototype._replaceStringPart = function (str) {
+		var log = this.log;
+
+		this.rules.forEach(function (rule) {
+			var 
+				  from = rule.from
+				, to = rule.to
+			;
+
+			str = str.replace(new RegExp(from, 'gi'), function (matched) {
+				return replaceMatched(matched, from, to);
+			});
+		});
+
+		return str;
+
+		function replaceMatched(matched, from, to) {
+			log("replaceMatched(): from=" + from + " to=" + to + " matched=" + matched);
+
+			var replaced = to.split('');
+
+			if (from.length !== to.length) {
+				return replaced.join('');
+			}
+
+			from.split('').forEach(function (char, charNum) {
+				var 
+					  matchedChar = matched[charNum]
+					, replacedChar = replaced[charNum]
+				;
+
+				replaced[charNum] = isUpper(matchedChar) ? replacedChar.toUpperCase() : replacedChar.toLowerCase();
+			});
+
+			return replaced.join('');
+		}
+	};
+
+	function Transliterator(rules) {
+		inherit(ITransliterator, this, rules);	
+	}
+
+	Transliterator.prototype = Object.create(ITransliterator.prototype);
+
+	Transliterator.prototype.transliterate = function (str) {
+		str = str || '';
+		str = this._replaceStringPart(str);
+
+		return str;	
+	};
+
+	function TransliteratorAsync(transliterateAsyncFn, bufferSizeChars, rules) {
+		var defaultBufferSizeChars = 100;
+
+		inherit(ITransliterator, this, rules);
+		this.bufferSizeChars = bufferSizeChars || defaultBufferSizeChars;
+		this.transliterateAsyncFn = transliterateAsyncFn;
+	}
+
+	TransliteratorAsync.prototype = Object.create(ITransliterator.prototype);
+
+	TransliteratorAsync.prototype.transliterate = function (str) { 
+		var 
+			
+			  transliterator = this
+			, bufferSizeChars = transliterator.bufferSizeChars
+
+			, i = 0
 			, buffered = str.substr(0, bufferSizeChars)
 		;
 		
 		str = str || '';
-		rules = rules || getDefaultRules();
-		bufferSizeChars = bufferSizeChars || defaultBufferSizeChars;
 
 		async(function generateBufferClosure(buffered, i) {
 			return function replaceAsync() {
 				var 
-					  replaced = replacePartSync(buffered, rules)
+					   replaced = transliterator._replaceStringPart(buffered)
 				;
 
-				transliterateAsyncFn(buffered, replaced, i);
+				transliterator.transliterateAsyncFn(buffered, replaced, i);
 
 				i = i + bufferSizeChars;
 				buffered = str.substr(i, bufferSizeChars);
@@ -50,149 +138,122 @@
 				}
 			};	
 		} (buffered, i));	
+	};
+
+	function Rule(from, to) {
+		this.from = from;
+		this.to = to;
 	}
 
-	function replacePartSync(str, rules) {
-		var 
-			  log = getLog()
-			, replaced = str
-		;
+	/* Russian specific rules */
 
-		for (var ruleNumber in rules) {
-			var 
-				  rule = rules[ruleNumber]
-				, from = rule[ruleFrom]
-				, to = rule[ruleTo]
-			;
+	function RussianRules() {
+		this.letters = 'АБВГДЕЁЖЗИЙКЛМНОПРСТУФХЦЧШЩЪЫЬЭЮЯ'.split('');
+		this.signs = 'ЬЪ'.split('');
+		this.vowels = 'АОУИЫЭЯЕЁЮ'.split('');
+		this.consonants = arrDiff(this.letters, this.signs.concat(this.vowels));
 
-			replaced = replaced.replace(new RegExp(from, 'gi'), replaceMatched);
-		}
+		this.consonantsTo = {
+			  'Б': 'B'
+			, 'В': 'V'
+			, 'Г': 'G'
+			, 'Д': 'D'
+			, 'Ж': 'Ƶ'
+			, 'З': 'Z'
+			, 'Й': 'J'
+			, 'К': 'K'
+			, 'Л': 'L'
+			, 'М': 'M'
+			, 'Н': 'N'
+			, 'П': 'P'
+			, 'Р': 'R'
+			, 'С': 'S'
+			, 'Т': 'T'
+			, 'Ф': 'F'
+			, 'Х': 'H'
+			, 'Ц': 'C'
+			, 'Ч': 'Č'
+			, 'Ш': 'Ş'
+			, 'Щ': 'Š'
+		};
 
-		return replaced;
+		this.vowelsTo = {
+			  'А': 'A'
+			, 'О': 'O'
+			, 'У': 'U'
+			, 'И': 'I'
+			, 'Ы': 'Y'
+			, 'Э': 'Ē'
+			, 'Е': 'E'
+			, 'Ё': 'Ö'
+			, 'Ю': 'Ü'
+			, 'Я': 'Ä'
+		};
 
-		function replaceMatched(matched) {
-			log("from=" + from + " to=" + to + " matched=" + matched);
+		this.signsTo = {
+			  'Ь': 'í'
+			, 'Ъ': ''
+		};
 
-			var replaced = to.split('');
+		this.rules = [];
 
-			if (from.length !== to.length) {
-				return replaced;
-			}
-
-			for(var charNum in from.split('')) {
-
-				switch(isUpper(matched[charNum])) {
-
-					case true:
-						replaced[charNum] = replaced[charNum].toUpperCase();
-						break;
-
-					default:
-						replaced[charNum] = replaced[charNum].toLowerCase();
-				}
-			}
-
-			return replaced.join('');
-		}
+		this.addConsonantSoftSignSoftVowelRules();
+		this.addEndSignsRules();
+		this.addSeparateLettersRules();
 	}
 
-	function getDefaultRules() {
-		if (cachedRules.length) { 
-			return cachedRules;
-		}
+	RussianRules.prototype.addRule = function (from, to) { 
+		var rule = new Rule(from, to);
+		this.rules.push(rule);
+	};
 
-		var 
-			  rules = []
+	RussianRules.prototype.addConsonantSoftSignSoftVowelRules = function () {
+		var rules = this;
 
-			, russianLetters = 'АБВГДЕЁЖЗИЙКЛМНОПРСТУФХЦЧШЩЪЫЬЭЮЯ'.split('')
-
-			, softSign = 'Ь'
-			, hardSign = 'Ъ'
-
-			, signs = [ softSign, hardSign ]
-
-			, vowels = 'АОУИЫЭЯЕЮ'.split('')
-			, softVowels = 'ЯЮЕЁ'.split('')
-
-			, consonants = arrDiff(russianLetters, signs.concat(vowels))
-
-			, consonantsTo = {
-				  'Б': 'B'
-				, 'В': 'V'
-				, 'Г': 'G'
-				, 'Д': 'D'
-				, 'Ж': 'Ƶ'
-				, 'З': 'Z'
-				, 'Й': 'J'
-				, 'К': 'K'
-				, 'Л': 'L'
-				, 'М': 'M'
-				, 'Н': 'N'
-				, 'П': 'P'
-				, 'Р': 'R'
-				, 'С': 'S'
-				, 'Т': 'T'
-				, 'Ф': 'F'
-				, 'Х': 'H'
-				, 'Ц': 'C'
-				, 'Ч': 'Č'
-				, 'Ш': 'Ş'
-				, 'Щ': 'Š'
-			}
-			, vowelsTo = {
-				  'А': 'A'
-				, 'О': 'O'
-				, 'У': 'U'
-				, 'И': 'I'
-				, 'Ы': 'Y'
-				, 'Э': 'Ē'
-				, 'Е': 'E'
-				, 'Ё': 'Ö'
-				, 'Ю': 'Ü'
-				, 'Я': 'Ä'
-			}
-
-			, signsTo = {
-				  'Ь': 'í'
-				, 'Ъ': ''
-			}
-		;
-
-		consonants.forEach(function (consonant) {
+		rules.consonants.forEach(function (consonant) {
 			
-			softVowels.forEach(function (softVowel) {
-				var 
-					  cyrConsonantSignSoftVowel = consonant + softSign + softVowel
-				  	, to = consonantsTo[consonant] + 'í' + vowelsTo[softVowel]
-				;
+			rules.vowels.forEach(function (vowel) {
+				
+				rules.signs.forEach(function (sign) {
+					var 
+						  cyrConsonantSignSoftVowel = consonant + sign + vowel
+					  	, to = rules.consonantsTo[consonant] + rules.signsTo[sign] + rules.vowelsTo[vowel]
+					;
 
-				addRule(cyrConsonantSignSoftVowel, to);
-			});
-
-			objForEach(signsTo, function (signTo, signFrom) {
-				addRule(consonant + signFrom, consonantsTo[consonant] + signTo);
+					rules.addRule(cyrConsonantSignSoftVowel, to);
+				});
 			});
 		});
+	};
 
-		[ consonantsTo, vowelsTo, signsTo ].forEach(function (letters) {
+	RussianRules.prototype.addEndSignsRules = function () {
+		var rules = this;
+
+		rules.consonants.forEach(function (consonant) {
+			objForEach(rules.signsTo, function (signTo, signFrom) {
+				rules.addRule(consonant + signFrom, rules.consonantsTo[consonant] + signTo);
+			});
+		});
+	};
+
+	RussianRules.prototype.addSeparateLettersRules = function () {
+		var rules = this;
+
+		[
+			  rules.consonantsTo
+			, rules.vowelsTo
+			, rules.signsTo 
+
+		].forEach(function (letters) {
 			for (var key in letters) {
-				addRule(key, letters[key]);	
+				rules.addRule(key, letters[key]);	
 			}
 		});
+	};
 
-		cachedRules = rules;
+	/* End russian specific rules */
 
-		return rules;
-
-		function addRule(from, to) {
-			var rule = [];
-
-			rule[ruleFrom] = from;
-			rule[ruleTo] = to;
-
-			rules.push(rule);
-		}
-	}
+	/* Private helpers below*/
 
 	function arrDiff(b, a) {
 	    return b.filter(function(i) {return a.indexOf(i) < 0;});
@@ -216,12 +277,14 @@
 		}
 	}
 
-	function getLog() {
-		return transliterate.log;
-	}
-
 	function exportGlobal(exportName, whatToExport) {
 		global[exportName] = whatToExport;
+	}
+
+	function inherit(Base, _this) {
+		var args = Array.prototype.slice.call(arguments, 2, arguments.length);
+
+		return Base.apply(_this, args);
 	}
 
 } (this));
