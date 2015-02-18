@@ -16,7 +16,7 @@ var transliterated = transliterate(str, [ rules ], [ transliterateWordPartFn ]);
 
 Rules will be applied in the specified order specified by array.
 ```
-rules - 
+rules =
 [
 	['Бь', 'B´'],
 	[ 'Вы', 'Vy' ],
@@ -29,15 +29,11 @@ transliterateWordPartFn
 
 ```
 transliterateWordPartFn = function (strFrom, strTo) {
-	if (str === 'Бь') {
-		return strTo;
-	}
-
 	if (str === 'Ня' &&  strTo === 'Ńa') {
 		return '<b>Ńa</b>'; //custom token wrapping or other job
 	}
 
-	//...
+	return strTo;
 };
 ```
 
