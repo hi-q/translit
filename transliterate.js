@@ -49,8 +49,11 @@
 		return rules;
 	};
 
-	ITransliterator.prototype._replaceStringPart = function (str) {
-		var log = this.log;
+	ITransliterator.prototype._replaceStringPart = function (fromChunk) {
+		var 
+			log = this.log
+			, toChunk = ''
+		;
 
 		this.rules.forEach(function (rule) {
 			var 
@@ -192,7 +195,7 @@
 		};
 
 		this.signsTo = {
-			  'Ь': 'Í'
+			  'Ь': 'ı'
 			, 'Ъ': ''
 		};
 
