@@ -4,54 +4,105 @@
 	var 
 		  obp = Object.prototype
 		, toString = obp.toString
+
+		, defaultBufferSizeChars = 100
+
+		, ruleFrom = 0
+		, ruleTo = 1
+
+		, cachedRules = []
 	;
 
 	transliterate.log = log;
 	global.transliterate = transliterate;
 
-	function transliterate(str, rules, transliterateFn) {
-		var log = transliterate.log;
+	function transliterate(str, transliterateAsyncFn, bufferSizeChars, rules) {
+		var 
+			  log = transliterate.log
+
+			, i
+			, buffered
+		;
 
 		str = str || '';
-
 		rules = rules || getDefaultRules();
-		transliterateFn = isFn(transliterateFn) ? transliterateFn : defaultTransliterate;
-
-		for (var ruleNumber in rules) {
-			var 
-				  rule = rules[ruleNumber]
-				, from = rule[0]
-				, to = rule[1]
-			;
-
-			str = str.replace(new RegExp(from, 'gi'), replaceMatched);
+		bufferSizeChars = bufferSizeChars || defaultBufferSizeChars;
+		
+		if (!isFn(transliterateAsyncFn)) {
+			str = replacePartSync(str);
+			log("str=" + str);
+			return str;
 		}
 
-		log("str=" + str);
-		return str;
+		i = 0;
+		buffered = str.substr(0, bufferSizeChars);
 
-		function replaceMatched(matched) {
+		async(function generateBufferClosure(buffered, i) {
+			return function replaceAsync() {
 				var 
-					replacedTo = transliterateFn(matched, to, rule).split('')
+					  replaced = replacePartSync(buffered)
 				;
 
-				log("from=" + matched + "matched=" + matched + " replacedTo=" + replacedTo);
+				transliterateAsyncFn(buffered, replaced, i);
 
-				if (from.length === replacedTo.length) {
-					
-					for(var charNum in from.split('')) {
-						replacedTo[charNum] = isUpper(matched[charNum]) ?
-								replacedTo[charNum].toUpperCase()
-								:
-								replacedTo[charNum].toLowerCase();
+				i = i + bufferSizeChars;
+				buffered = str.substr(i, bufferSizeChars);
+
+				if (i < str.length) {
+					async(generateBufferClosure(buffered, i));	
+				}
+			};	
+		} (buffered, i));
+
+		function replacePartSync(str) {
+			var 
+				replaced = str
+			;
+
+			for (var ruleNumber in rules) {
+				var 
+					  rule = rules[ruleNumber]
+					, from = rule[ruleFrom]
+					, to = rule[ruleTo]
+				;
+
+				replaced = replaced.replace(new RegExp(from, 'gi'), replaceMatched);
+			}
+
+			return replaced;
+
+			function replaceMatched(matched) {
+				log("from=" + from + " to=" + to + " matched=" + matched);
+
+				var replaced = to.split('');
+
+				if (from.length !== to.length) {
+					return replaced;
+				}
+
+				for(var charNum in from.split('')) {
+
+					switch(isUpper(matched[charNum])) {
+
+						case true:
+							replaced[charNum] = replaced[charNum].toUpperCase();
+							break;
+
+						default:
+							replaced[charNum] = replaced[charNum].toLowerCase();
 					}
 				}
 
-				return replacedTo.join('');
+				return replaced.join('');
 			}
+		}
 	}
 
 	function getDefaultRules() {
+		if (cachedRules.length) { 
+			return cachedRules;
+		}
+
 		var 
 			  rules = []
 
@@ -102,39 +153,52 @@
 				, 'Ю': 'Ü'
 				, 'Я': 'Ä'
 			}
+
+			, signsTo = {
+				  'Ь': 'í'
+				, 'Ъ': ''
+			}
 		;
 
 		consonants.forEach(function (consonant) {
+			
 			softVowels.forEach(function (softVowel) {
 				var 
 					  cyrConsonantSignSoftVowel = consonant + softSign + softVowel
 				  	, to = consonantsTo[consonant] + 'í' + vowelsTo[softVowel]
-					, rule = [ cyrConsonantSignSoftVowel, to]
 				;
 
-				rules.push(rule);	
+				addRule(cyrConsonantSignSoftVowel, to);
 			});
 
-			rules.push([ consonant + softSign,  consonantsTo[consonant] + 'í' ]);	
-			rules.push([ consonant + hardSign,  consonantsTo[consonant]]);
+			objForEach(signsTo, function (signTo, signFrom) {
+				addRule(consonant + signFrom, consonantsTo[consonant] + signTo);
+			});
 		});
 
-		for (var cyrKey in consonantsTo) {
-			rules.push([ cyrKey, consonantsTo[cyrKey] ]);
-		}
+		[ consonantsTo, vowelsTo, signsTo ].forEach(function (letters) {
+			for (var key in letters) {
+				addRule(key, letters[key]);	
+			}
+		});
 
-		for (var cyrVowelKey in vowelsTo) {
-			rules.push([ cyrVowelKey, vowelsTo[cyrVowelKey] ]);
-		}
+		cachedRules = rules;
 
 		return rules;
+
+		function addRule(from, to) {
+			var rule = [];
+
+			rule[ruleFrom] = from;
+			rule[ruleTo] = to;
+
+			rules.push(rule);
+		}
 	}
 
 	function isFn(fn) {
 		return toString.apply(fn) === '[object Function]';
 	}
-
-	function defaultTransliterate(from, to) { return to; }
 
 	function arrDiff(b, a) {
 	    return b.filter(function(i) {return a.indexOf(i) < 0;});
@@ -147,6 +211,34 @@
 	}
 
 	function log(str) {
-		global.console.log(str);
+		
 	}
+
+	function async(fn) {
+		setTimeout(fn, 0);
+	}
+
+	function objForEach(obj, eachFn) {
+		for (var key in obj) {
+			eachFn(obj[key], key, obj);
+		}
+	}
+
+	// function ab2str(buf) {
+	// 	return String.fromCharCode.apply(null, new Uint16Array(buf));
+	// }
+
+	// function str2ab(str) {
+	// 	var 
+	// 		  ab = new ArrayBuffer(str.length *2 )
+	// 		, ar = new Uint16Array(ab)
+	// 	;
+
+	// 	for (var i = 0, strlen = str.length; i < strlen; i++) {
+	// 		ar[i] = str.charCodeAt(i);
+	// 	}
+
+	// 	return ab;
+	// }
+
 } (this));

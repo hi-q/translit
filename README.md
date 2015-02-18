@@ -12,7 +12,7 @@ Feel free to use with MIT.
 
 # Usage
 ```
-var transliterated = transliterate(str, [ rules ], [ transliterateWordPartFn ]);
+var transliterated = transliterate(str, [ transliterateAsyncFn ],  [ bufferSizeChars ], [ rules ]);
 
 ```
 
@@ -27,17 +27,17 @@ rules =
 ];
 ```
 
-transliterateWordPartFn
+transliterateAsyncFn - string will be transliterated asynchronously with buffers of defined or default size 100 and when all async done this callback will be triggered with the transliterated string.
 
 ```
-transliterateWordPartFn = function (strFrom, strTo) {
-	if (str === 'Ня' &&  strTo === 'Ńa') {
+transliterateAsyncFn = function (originalChunk, replacedChunk, chunkStartIndex) {
+	if (originalChunk === 'Ня' &&  replacedChunk === 'Ńa') {
 		return '<b>Ńa</b>'; //custom token wrapping or other job
 	}
-
-	return strTo;
 };
 ```
+bufferSizeChars - string will be parsed using binary buffer of fixed size if available
+
 
 # Logging
 
@@ -46,4 +46,4 @@ You can specify your custom logger settings by
 transiterate.log = yourLogFn
 ```
 
-The default one is global.console.log.
+Log is disabled by default;
