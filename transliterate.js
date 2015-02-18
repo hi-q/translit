@@ -58,6 +58,7 @@
 				, to = rule.to
 			;
 
+			// TODO: sure, this is slow and should be fixed ASAP
 			str = str.replace(new RegExp(from, 'gi'), function (matched) {
 				return replaceMatched(matched, from, to);
 			});
