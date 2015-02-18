@@ -72,7 +72,7 @@
 				, 'В': 'V'
 				, 'Г': 'G'
 				, 'Д': 'D'
-				, 'Ж': 'Ż'
+				, 'Ж': 'Ƶ'
 				, 'З': 'Z'
 				, 'Й': 'J'
 				, 'К': 'K'
@@ -87,7 +87,7 @@
 				, 'Х': 'H'
 				, 'Ц': 'C'
 				, 'Ч': 'Č'
-				, 'Ш': '?'
+				, 'Ш': 'Ş'
 				, 'Щ': 'Š'
 			}
 			, vowelsTo = {
@@ -108,14 +108,14 @@
 			softVowels.forEach(function (softVowel) {
 				var 
 					  cyrConsonantSignSoftVowel = consonant + softSign + softVowel
-				  	, to = consonantsTo[consonant] + '´' + vowelsTo[softVowel]
+				  	, to = consonantsTo[consonant] + 'í' + vowelsTo[softVowel]
 					, rule = [ cyrConsonantSignSoftVowel, to]
 				;
 
 				rules.push(rule);	
 			});
 
-			rules.push([ consonant + softSign,  consonantsTo[consonant] + '´' ]);	
+			rules.push([ consonant + softSign,  consonantsTo[consonant] + 'í' ]);	
 			rules.push([ consonant + hardSign,  consonantsTo[consonant]]);
 		});
 

@@ -6,6 +6,8 @@ For now here will be only Russian Cyr -> Russian Lat transliteration.
 
 Later ukrainian and belarusian will be added.
 
+Also current implementation is slow and very simple. Async transliteration with buffering will be added.
+
 Feel free to use with MIT.
 
 # Usage
