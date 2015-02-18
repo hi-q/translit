@@ -37,3 +37,11 @@ transliterateWordPartFn = function (strFrom, strTo) {
 };
 ```
 
+# Logging
+
+You can specify your custom logger settings by
+```
+transiterate.log = yourLogFn
+```
+
+The default one is global.console.log.

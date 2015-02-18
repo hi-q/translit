@@ -6,9 +6,12 @@
 		, toString = obp.toString
 	;
 
+	transliterate.log = log;
 	global.transliterate = transliterate;
 
 	function transliterate(str, rules, transliterateFn) {
+		var log = transliterate.log;
+
 		str = str || '';
 
 		rules = rules || getDefaultRules();
@@ -19,24 +22,40 @@
 				  rule = rules[ruleNumber]
 				, from = rule[0]
 				, to = rule[1]
-
-				, replacedTo = transliterateFn(from, to)
 			;
 
-			if (replacedTo) { 
-				str = str.replace(from, replacedTo);
-			}
+			str = str.replace(new RegExp(from, 'gi'), replaceMatched);
 		}
 
+		log("str=" + str);
 		return str;
+
+		function replaceMatched(matched) {
+				var 
+					replacedTo = transliterateFn(matched, to, rule).split('')
+				;
+
+				log("from=" + matched + "matched=" + matched + " replacedTo=" + replacedTo);
+
+				if (from.length === replacedTo.length) {
+					
+					for(var charNum in from.split('')) {
+						replacedTo[charNum] = isUpper(matched[charNum]) ?
+								replacedTo[charNum].toUpperCase()
+								:
+								replacedTo[charNum].toLowerCase();
+					}
+				}
+
+				return replacedTo.join('');
+			}
 	}
 
 	function getDefaultRules() {
 		var 
 			  rules = []
 
-			, russianLettersUpper = 'АБВГДЕЁЖЗИЙКЛМНОПРСТУФХЦЧШЩЪЫЬЭЮЯ'.split('')
-			, russianLettersLower = russianLettersUpper.map(function (letter) { return letter.toLowerCase(); })
+			, russianLetters = 'АБВГДЕЁЖЗИЙКЛМНОПРСТУФХЦЧШЩЪЫЬЭЮЯ'.split('')
 
 			, softSign = 'Ь'
 			, hardSign = 'Ъ'
@@ -46,7 +65,7 @@
 			, vowels = 'АОУИЫЭЯЕЮ'.split('')
 			, softVowels = 'ЯЮЕЁ'.split('')
 
-			, consonants = arrDiff(russianLettersUpper, signs.concat(vowels))
+			, consonants = arrDiff(russianLetters, signs.concat(vowels))
 
 			, consonantsTo = {
 				  'Б': 'B'
@@ -70,22 +89,6 @@
 				, 'Ч': 'Č'
 				, 'Ш': '?'
 				, 'Щ': 'Š'
-
-				, 'б': 'b'
-				, 'в': 'v'
-				, 'г': 'g'
-				, 'д': 'd'
-				, 'ж': 'ż'
-				, 'з': 'z'
-				, 'й': 'j'
-				, 'к': 'k'
-				, 'л': 'l'
-				, 'м': 'm'
-				, 'н': 'n'
-				, 'п': 'p'
-				, 'р': 'r'
-				, 'с': 's'
-				, 'т': 't'
 			}
 			, vowelsTo = {
 				  'А': 'A'
@@ -98,17 +101,6 @@
 				, 'Ё': 'Ö'
 				, 'Ю': 'Ü'
 				, 'Я': 'Ä'
-
-				, 'а': 'a'
-				, 'о': 'o'
-				, 'у': 'u'
-				, 'и': 'i'
-				, 'ы': 'y'
-				, 'э': 'ē'
-				, 'е': 'e'
-				, 'ё': 'ö'
-				, 'ю': 'ü'
-				, 'я': 'ä'
 			}
 		;
 
@@ -118,24 +110,21 @@
 					  cyrConsonantSignSoftVowel = consonant + softSign + softVowel
 				  	, to = consonantsTo[consonant] + '´' + vowelsTo[softVowel]
 					, rule = [ cyrConsonantSignSoftVowel, to]
-
-					, lowerConsSignVowel = consonant.toLowerCase() + softSign.toLowerCase() + softVowel.toLowerCase()
-					, toLower = consonantsTo[consonant.toLowerCase()] + '´' + vowelsTo[softVowel.toLowerCase()]
-
-					, lowerRule = [ lowerConsSignVowel, toLower ]
 				;
 
 				rules.push(rule);	
-				rules.push(lowerRule);
-			});	
+			});
+
+			rules.push([ consonant + softSign,  consonantsTo[consonant] + '´' ]);	
+			rules.push([ consonant + hardSign,  consonantsTo[consonant]]);
 		});
 
 		for (var cyrKey in consonantsTo) {
 			rules.push([ cyrKey, consonantsTo[cyrKey] ]);
 		}
 
-		for (var cyrKey in vowelsTo) {
-			rules.push([ cyrKey, vowelsTo[cyrKey] ]);
+		for (var cyrVowelKey in vowelsTo) {
+			rules.push([ cyrVowelKey, vowelsTo[cyrVowelKey] ]);
 		}
 
 		return rules;
@@ -149,5 +138,15 @@
 
 	function arrDiff(b, a) {
 	    return b.filter(function(i) {return a.indexOf(i) < 0;});
+	}
+
+	function isUpper(str) {
+		str = str || '';
+
+		return str === str.toUpperCase();
+	}
+
+	function log(str) {
+		global.console.log(str);
 	}
 } (this));
