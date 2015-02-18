@@ -1,4 +1,5 @@
 ;(function (global) { 
+	'use strict';
 
 	var 
 		  obp = Object.prototype
@@ -8,8 +9,6 @@
 	global.transliterate = transliterate;
 
 	function transliterate(str, rules, transliterateFn) {
-		var rules, transliterateFn;
-
 		str = str || '';
 
 		rules = rules || getDefaultRules();
