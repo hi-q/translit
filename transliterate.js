@@ -49,10 +49,9 @@
 		return rules;
 	};
 
-	ITransliterator.prototype._replaceStringPart = function (fromChunk) {
+	ITransliterator.prototype._replaceStringPart = function (str) {
 		var 
 			log = this.log
-			, toChunk = ''
 		;
 
 		this.rules.forEach(function (rule) {
